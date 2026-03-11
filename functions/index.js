@@ -7,7 +7,7 @@ const { initializeApp } = require("firebase-admin/app");
 // Genkit imports
 const { genkit } = require("genkit");
 const { googleAI } = require("@genkit-ai/googleai");
-const { gemini15Flash } = require("@genkit-ai/googleai");
+const { gemini20FlashExp } = require("@genkit-ai/googleai");
 
 initializeApp();
 
@@ -46,7 +46,7 @@ exports.chatWithCrooked = onCall(async (request) => {
   try {
     // Generate AI response using Genkit's new simplified API
     const response = await ai.generate({
-      model: gemini15Flash,
+      model: gemini20FlashExp,
       system: CROOKED_SYSTEM_PROMPT,
       messages: messages, // Pass the conversational history
     });
@@ -64,7 +64,7 @@ exports.chatWithCrooked = onCall(async (request) => {
       let aiSummary = "Conversation started...";
       if (fullHistory.length > 2) {
         const summarizeReq = await ai.generate({
-          model: gemini15Flash,
+          model: gemini20FlashExp,
           system: "You are a helpful assistant. Summarize the following chatbot conversation between a user and an interior design consultant. Keep it to 1 sentence, focusing on what the user wants.",
           prompt: JSON.stringify(fullHistory),
         });
@@ -110,7 +110,7 @@ exports.submitContactForm = onCall(async (request) => {
   try {
     // 1. Generate an AI summary of the message using Genkit
     const summaryResponse = await ai.generate({
-      model: gemini15Flash,
+      model: gemini20FlashExp,
       system: "You are a helpful assistant. Summarize the following interior design inquiry in 1-2 concise sentences, focusing on the client's core pain points or desires.",
       prompt: `Client Name: ${name}\nClient Email: ${email}\nMessage: ${message}`,
     });

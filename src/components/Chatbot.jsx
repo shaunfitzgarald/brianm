@@ -43,8 +43,11 @@ export function Chatbot() {
       // Call the Genkit Firebase Function
       const chatWithCrooked = httpsCallable(functions, 'chatWithCrooked');
       
+      // Gemini requires the history to start with a "user" message, so we omit the initial greeting
+      const historyToSend = newMessages[0].role === "assistant" ? newMessages.slice(1) : newMessages;
+
       // Genkit expects the role "model" instead of "assistant"
-      const genkitMessages = newMessages.map(m => ({
+      const genkitMessages = historyToSend.map(m => ({
         role: m.role === "assistant" ? "model" : m.role,
         content: [{ text: m.content }]
       }));

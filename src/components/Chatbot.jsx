@@ -10,6 +10,11 @@ export function Chatbot() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const threadId = useRef(Math.random().toString(36).substring(2, 15));
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   // Typewriter effect state for the last assistant message
   const [displayedText, setDisplayedText] = useState("");
@@ -28,6 +33,10 @@ export function Chatbot() {
       return () => clearInterval(interval);
     }
   }, [lastMessage]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, displayedText, isTyping]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -112,6 +121,7 @@ export function Chatbot() {
                 <span className="inline-block w-1.5 h-3 bg-stone-400 animate-pulse mt-1" />
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
 
           <form onSubmit={handleSubmit} className="relative mt-auto">

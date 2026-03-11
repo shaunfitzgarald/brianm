@@ -5,8 +5,9 @@ const { onCall } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 
 // Genkit imports
-const { genkit } = require("genkit");
+const { genkit, z } = require("genkit");
 const { googleAI } = require("@genkit-ai/googleai");
+const { getFirestore } = require("firebase-admin/firestore");
 
 
 initializeApp();
@@ -18,23 +19,56 @@ const ai = genkit({
 
 // The system prompt defining the persona
 const CROOKED_SYSTEM_PROMPT = `
-You are Brian, the founder and lead designer of "Crooked Credenza", an interior design studio.
-Your design philosophy is "Refined Imperfection". You do NOT celebrate bad design, but you liberate design from the pressure to be perfect.
-You value character over polish, lived-in over staged, and patina, irregularity, and memory.
-Spaces should feel inhabited, not optimized.
+You are Crooked AI, an assistant for Brian, the founder and lead designer of "Crooked Credenza", an interior design studio.
+Your design philosophy values character over polish, lived-in over staged, and patina, irregularity, and memory.
 
-You are a curatorial matchmaker. If asked for recommendations, you can suggest:
-- Designers: Alex Vervoordt, Pierre Chapo, Charlotte Perriand, Rose Uniacke, Studio KO.
-- Materials: Honest stone, organic textures, fabrics that age well like Libeco and Maison de Vacances textiles, vintage kilims.
-- Brands: Lemaire, The Row, Jil Sander (for fashion cross-pollination).
+CRITICAL RULES:
+1. Do NOT replace Brian and his artistic vision. Keep your own design suggestions and ideas to an absolute minimum.
+2. Focus entirely on what the client wants and their ideas. Ask gentle, probing questions about their space and how they live in it to help them articulate their own vision.
+3. Do NOT suggest specific furniture, colors, or layouts unless the user explicitly asks for something very general, and even then, defer to Brian's expertise.
+4. When the user has shared enough about their space or expresses interest in working with Brian, offer to submit an inquiry on their behalf.
+5. Use the \`submitInquiry\` tool to collect their name, email, and project details and send it directly to Brian. Let the user know you have done so.
 
 Your Tone of Voice:
-- Thoughtful, observant, slightly poetic, never preachy.
-- Use gentle language. Don't use trend jargon or moralize taste. 
-- You speak in short, thoughtful sentences.
-
-Your goal is to consult the user on their space. Ask gentle, probing questions about how they LIVE in their space rather than just what it looks like.
+- Thoughtful, observant, never preachy.
+- Use gentle language in short, thoughtful sentences.
 `;
+
+// Define a tool for the AI to submit contact inquiries automatically
+const submitInquiryTool = ai.defineTool(
+  {
+    name: "submitInquiry",
+    description: "Submit a project inquiry or contact message to Brian on behalf of the user. Call this ONLY when the user explicitly wants to reach out to Brian or hire him. You'll need their name, email, and a summary of their project.",
+    schema: z.object({
+      name: z.string().describe("The user's full name"),
+      email: z.string().describe("The user's email address"),
+      message: z.string().describe("A custom summary of the user's project, space, and ideas based on the conversation"),
+    }),
+  },
+  async ({ name, email, message }) => {
+    const db = getFirestore();
+    const contactRef = db.collection("contacts").doc();
+    
+    // Quick summary using AI on the message
+    const summaryResponse = await ai.generate({
+      model: "googleai/gemini-2.5-flash-lite",
+      system: "Summarize the interior design inquiry in 1 sentence.",
+      prompt: `Message: ${message}`,
+    });
+    const aiSummary = summaryResponse.text;
+
+    await contactRef.set({
+      name,
+      email,
+      message,
+      aiSummary,
+      createdAt: new Date().toISOString(),
+      status: "unread"
+    });
+
+    return "Inquiry successfully sent. Please notify the user that you've sent it to Brian and he'll be in touch.";
+  }
+);
 
 exports.chatWithCrooked = onCall(async (request) => {
   const { messages, threadId } = request.data;
@@ -49,6 +83,7 @@ exports.chatWithCrooked = onCall(async (request) => {
       model: "googleai/gemini-2.5-flash-lite",
       system: CROOKED_SYSTEM_PROMPT,
       messages: messages, // Pass the conversational history
+      tools: [submitInquiryTool], // Give the model access to the tool
     });
     
     const replyText = response.text;
@@ -87,7 +122,6 @@ exports.chatWithCrooked = onCall(async (request) => {
 });
 
 const nodemailer = require("nodemailer");
-const { getFirestore } = require("firebase-admin/firestore");
 
 // Configure nodemailer transporter using standard SMTP or a service.
 // (For demo purposes, we will mock the actual sending or use a test account if env vars aren't present)

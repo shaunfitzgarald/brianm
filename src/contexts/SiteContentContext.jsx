@@ -21,7 +21,7 @@ const defaultContent = {
     heading: "I'm Brian, founder\nand lead designer.",
     textPart1: "I believe the most compelling spaces aren't perfect — ",
     textPart2: "they're personal.",
-    imageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800"
+    imageUrl: "/brian.jpg"
   },
   philosophy: {
     section1Heading: "Materials that\nage well,",
@@ -32,6 +32,9 @@ const defaultContent = {
     section2Image: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1000",
     welcomeHeading: "Welcome to\nCrooked Credenza.",
     welcomeImage: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&q=80&w=2000"
+  },
+  settings: {
+    chatbotEnabled: true
   }
 };
 
@@ -45,7 +48,7 @@ export function SiteContentProvider({ children }) {
     
     const fetchAndListen = async () => {
       try {
-        const sections = ['hero', 'about', 'philosophy'];
+        const sections = ['hero', 'about', 'philosophy', 'settings'];
         
         sections.forEach(section => {
           const docRef = doc(db, "siteContent", section);

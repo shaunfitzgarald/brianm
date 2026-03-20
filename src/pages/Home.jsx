@@ -7,7 +7,7 @@ import { Chatbot } from "../components/Chatbot";
 import { useSiteContent } from "../contexts/SiteContentContext";
 
 export function Home() {
-  const { loading } = useSiteContent();
+  const { content, loading } = useSiteContent();
 
   if (loading) {
     return (
@@ -23,7 +23,7 @@ export function Home() {
       <About />
       <Philosophy />
       <Contact />
-      <Chatbot />
+      {content?.settings?.chatbotEnabled !== false && <Chatbot />}
     </div>
   );
 }

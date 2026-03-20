@@ -15,9 +15,8 @@ export function About() {
             <img 
               src={aboutContent.imageUrl}
               alt="Brian - Founder and Lead Designer"
-              className="w-full h-full object-cover grayscale mix-blend-multiply opacity-80"
+              className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-stone mix-blend-color opacity-20" />
           </div>
         </div>
 

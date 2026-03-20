@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useForm } from "react-hook-form";
-import { auth, db } from "../firebase";
+import { auth, db, storage } from "../firebase";
 import { useSiteContent } from "../contexts/SiteContentContext";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { LogOut, Save, RefreshCw } from "lucide-react";
 
 export function Admin() {
@@ -107,6 +108,13 @@ export function Admin() {
           </button>
           <div className="my-2 border-t border-stone-200"></div>
           <button 
+            onClick={() => setActiveTab('settings')}
+            className={`w-full text-left px-3 py-2 rounded transition-colors ${activeTab === 'settings' ? 'bg-stone-200 font-medium' : 'hover:bg-stone-200/50'}`}
+          >
+            Site Settings
+          </button>
+          <div className="my-2 border-t border-stone-200"></div>
+          <button 
             onClick={() => setActiveTab('inbox')}
             className={`w-full text-left px-3 py-2 rounded transition-colors ${activeTab === 'inbox' ? 'bg-stone-200 font-medium' : 'hover:bg-stone-200/50'}`}
           >
@@ -133,10 +141,10 @@ export function Admin() {
         <div className="max-w-4xl mx-auto">
           <header className="mb-8 hidden md:block">
             <h2 className="text-3xl font-serif text-primary capitalize">
-              {activeTab === 'inbox' ? 'Virtual Inbox' : activeTab === 'oversight' ? 'Chatbot Oversight' : `${activeTab} Editor`}
+              {activeTab === 'inbox' ? 'Virtual Inbox' : activeTab === 'oversight' ? 'Chatbot Oversight' : activeTab === 'settings' ? 'Site Settings' : `${activeTab} Editor`}
             </h2>
             <p className="text-muted-foreground mt-2">
-              {activeTab === 'inbox' ? 'Review inquiries and AI summaries.' : activeTab === 'oversight' ? 'Review anonymous user conversations with Crooked AI.' : 'Update the content shown on the public site real-time.'}
+              {activeTab === 'inbox' ? 'Review inquiries and AI summaries.' : activeTab === 'oversight' ? 'Review anonymous user conversations with Crooked AI.' : activeTab === 'settings' ? 'Manage global website configuration.' : 'Update the content shown on the public site real-time.'}
             </p>
           </header>
 
@@ -216,10 +224,11 @@ function VirtualInbox() {
 }
 
 function CMSForm({ sectionName, defaultValues }) {
-  const { register, handleSubmit, reset, formState: { isSubmitting, isDirty } } = useForm({
+  const { register, handleSubmit, reset, setValue, formState: { isSubmitting, isDirty } } = useForm({
     defaultValues
   });
   const [saveStatus, setSaveStatus] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     reset(defaultValues);
@@ -234,7 +243,33 @@ function CMSForm({ sectionName, defaultValues }) {
       setTimeout(() => setSaveStatus(""), 3000);
     } catch (error) {
       console.error("Error saving document: ", error);
-      setSaveStatus("Error saving.");
+      setSaveStatus(`Error saving: ${error.message || "Unknown error"}`);
+    }
+  };
+
+  const handleImageUpload = async (e, fieldKey) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    setSaveStatus("Uploading image...");
+
+    try {
+      // Create a unique filename based on the section and time
+      const storageRef = ref(storage, `siteContent/${sectionName}/${fieldKey}_${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      // Update form value, marks it as dirty
+      setValue(fieldKey, downloadURL, { shouldDirty: true });
+      
+      setSaveStatus("Image uploaded successfully! Remember to Publish Changes.");
+      setTimeout(() => setSaveStatus(""), 3000);
+    } catch (error) {
+      console.error("Error uploading image: ", error);
+      setSaveStatus(`Error uploading image: ${error.message || "Unknown error"}`);
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -266,13 +301,23 @@ function CMSForm({ sectionName, defaultValues }) {
           // If value is long or has newlines, use textarea, else input
           const isTextArea = typeof value === 'string' && (value.length > 80 || value.includes('\n') || key.includes('paragraph') || key.includes('Text'));
           const isImage = key.toLowerCase().includes('image');
+          const isBoolean = typeof value === 'boolean';
 
           return (
             <div key={key}>
               <label className="block text-sm font-medium text-foreground mb-2 capitalize">
                 {key.replace(/([A-Z])/g, ' $1').trim()}
               </label>
-              {isTextArea ? (
+              {isBoolean ? (
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    {...register(key)}
+                    className="w-5 h-5 accent-foreground cursor-pointer rounded border-stone-300 focus:ring-foreground"
+                  />
+                  <span className="text-sm text-muted-foreground">Enable this feature</span>
+                </div>
+              ) : isTextArea ? (
                 <textarea 
                   {...register(key)} 
                   rows={4}
@@ -281,8 +326,19 @@ function CMSForm({ sectionName, defaultValues }) {
               ) : (
                 <div className="relative">
                   {isImage && (
-                    <div className="mb-2 p-2 border border-stone-200 rounded block w-fit">
-                      <img src={value} alt="Preview" className="h-20 w-auto object-cover rounded" />
+                    <div className="mb-2 space-y-3">
+                      <div className="p-2 border border-stone-200 rounded block w-fit">
+                        <img src={value} alt="Preview" className="h-20 w-auto object-cover rounded" />
+                      </div>
+                      <div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageUpload(e, key)}
+                          disabled={uploadingImage}
+                          className="text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-foreground file:text-background hover:file:bg-foreground/90 disabled:opacity-50"
+                        />
+                      </div>
                     </div>
                   )}
                   <input 

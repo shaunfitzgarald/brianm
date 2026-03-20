@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getAuth, connectAuthEmulator } from "firebase/auth";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -16,12 +17,14 @@ const app = initializeApp(firebaseConfig);
 const functions = getFunctions(app);
 const db = getFirestore(app);
 const auth = getAuth(app);
+const storage = getStorage(app);
 
 // Connect to emulators in development
 if (import.meta.env.DEV) {
   connectFunctionsEmulator(functions, "127.0.0.1", 5001);
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
   connectAuthEmulator(auth, "http://127.0.0.1:9099");
+  connectStorageEmulator(storage, "127.0.0.1", 9199);
 }
 
-export { functions, db, auth };
+export { functions, db, auth, storage };

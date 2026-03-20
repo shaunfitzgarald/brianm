@@ -27,7 +27,8 @@ CRITICAL RULES:
 2. Focus entirely on what the client wants and their ideas. Ask gentle, probing questions about their space and how they live in it to help them articulate their own vision.
 3. Do NOT suggest specific furniture, colors, or layouts unless the user explicitly asks for something very general, and even then, defer to Brian's expertise.
 4. When the user has shared enough about their space or expresses interest in working with Brian, offer to submit an inquiry on their behalf.
-5. Use the \`submitInquiry\` tool to collect their name, email, and project details and send it directly to Brian. Let the user know you have done so.
+5. You MUST ask the user for their name and email address BEFORE attempting to submit an inquiry. Do not hallucinate or make these up.
+6. You MUST ACTUALLY CALL the \`submitInquiry\` tool to securely send their name, email, and project details directly to Brian. Do NOT just say you submitted it without calling the tool.
 
 Your Tone of Voice:
 - Thoughtful, observant, never preachy.
@@ -38,35 +39,48 @@ Your Tone of Voice:
 const submitInquiryTool = ai.defineTool(
   {
     name: "submitInquiry",
-    description: "Submit a project inquiry or contact message to Brian on behalf of the user. Call this ONLY when the user explicitly wants to reach out to Brian or hire him. You'll need their name, email, and a summary of their project.",
+    description: "Submit a project inquiry or contact message to Brian on behalf of the user. Call this ONLY when the user explicitly wants to reach out to Brian or hire him, AND you have already asked for and received their name and email.",
     schema: z.object({
-      name: z.string().describe("The user's full name"),
-      email: z.string().describe("The user's email address"),
-      message: z.string().describe("A custom summary of the user's project, space, and ideas based on the conversation"),
+      name: z.string().optional().describe("The user's full name"),
+      email: z.string().optional().describe("The user's email address"),
+      message: z.string().optional().describe("A custom summary of the user's project, space, and ideas based on the conversation"),
     }),
   },
   async ({ name, email, message }) => {
-    const db = getFirestore();
-    const contactRef = db.collection("contacts").doc();
+    console.log("TOOL CALLED: submitInquiry", { name, email, message });
     
-    // Quick summary using AI on the message
-    const summaryResponse = await ai.generate({
-      model: "googleai/gemini-2.5-flash-lite",
-      system: "Summarize the interior design inquiry in 1 sentence.",
-      prompt: `Message: ${message}`,
-    });
-    const aiSummary = summaryResponse.text;
+    if (!name || !email || !message) {
+      console.warn("Missing required fields, prompting AI to ask user.");
+      return "Error: You MUST provide 'name', 'email', and 'message'. Please ask the user for any missing information before calling this tool again.";
+    }
 
-    await contactRef.set({
-      name,
-      email,
-      message,
-      aiSummary,
-      createdAt: new Date().toISOString(),
-      status: "unread"
-    });
+    try {
+      const db = getFirestore();
+      const contactRef = db.collection("contacts").doc();
+      
+      // Quick summary using AI on the message
+      const summaryResponse = await ai.generate({
+        model: "googleai/gemini-2.5-flash-lite",
+        system: "Summarize the interior design inquiry in 1 sentence.",
+        prompt: `Message: ${message}`,
+      });
+      const aiSummary = summaryResponse.text;
 
-    return "Inquiry successfully sent. Please notify the user that you've sent it to Brian and he'll be in touch.";
+      await contactRef.set({
+        name,
+        email,
+        message,
+        aiSummary,
+        createdAt: new Date().toISOString(),
+        status: "unread"
+      });
+
+      console.log("TOOL SUCCESS: Contact saved.", contactRef.id);
+      return "Inquiry successfully sent. Please notify the user that you've sent it to Brian and he'll be in touch.";
+    } catch (error) {
+      console.error("TOOL ERROR:", error);
+      return "Error submitting inquiry.";
+    }
   }
 );
 
